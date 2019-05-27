@@ -1,6 +1,6 @@
 import numpy as np
 
-class Classfier:
+class Classifier:
 
     def __init__():
         pass
