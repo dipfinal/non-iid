@@ -2,9 +2,9 @@
 import gc, argparse, sys, os, errno
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import h5py
+#import matplotlib.pyplot as plt
+#import seaborn as sns
+#import h5py
 import os
 from tqdm import tqdm as tqdm
 import scipy
@@ -18,7 +18,7 @@ def sigmoid(x):
     return 1/(1+np.exp(-x))
 
 def J_cost(W,beta,X,Y,lambda0, lambda1, lambda2, lambda3, lambda5):
-    return lambda0*sum((W*W)*(log(1+exp(X@beta))-Y*(X@beta))) \
+    return lambda0*sum((W*W)*(np.log(1+np.exp(X@beta))-Y*(X@beta))) \
          +lambda1*sum(balance_cost(W,X)) \
          +lambda2*((W*W).T@(W*W)) \
          +lambda3*sum(beta**2) \
@@ -28,13 +28,13 @@ def balance_cost(W=None,X=None,*args,**kwargs):
     m = X.shape[1]  
     f_x=np.zeros([m,1])
     for i in np.arange(0,m):
-        X_sub=copy(X)
+        X_sub=np.copy(X)
         X_sub[:,i]=0
         I=(X[:,i] > 0).astype('double')+10e-4
-        loss=( dot( X_sub.T, multiply( multiply(W,W),I.reshape(-1,1) ) ) ) / (dot((multiply(W,W)).T,I.reshape(-1,1)))\
-            -(dot(X_sub.T,(multiply((multiply(W,W)),(1 - I.reshape(-1,1)))))) / (dot((multiply(W,W)).T,(1 - I.reshape(-1,1))))
+        loss=( np.dot( X_sub.T, np.multiply( np.multiply(W,W),I.reshape(-1,1) ) ) ) / (np.dot((np.multiply(W,W)).T,I.reshape(-1,1)))\
+            -(np.dot(X_sub.T,(np.multiply((np.multiply(W,W)),(1 - I.reshape(-1,1)))))) / (np.dot((np.multiply(W,W)).T,(1 - I.reshape(-1,1))))
         #print (loss.shape)
-        f_x[i]=dot(loss.T,loss)
+        f_x[i]=np.dot(loss.T,loss)
     return f_x
     
 def balance_grad(W=None,X=None,*args,**kwargs):
@@ -94,7 +94,7 @@ def mainFunc(X, Y, \
                <= f_base + grad_beta.T@(z-beta)\
                + (1/(2*lambda_beta))*sum((z-beta)**2):
                 break;
-            lambda_beta = parameter_iter@lambda_beta;
+            lambda_beta = parameter_iter*lambda_beta;
         beta_prev = y;
         beta = z;
 
@@ -103,7 +103,7 @@ def mainFunc(X, Y, \
         W = W+(iter/(iter+3))*(W-W_prev);    
         f_base = J_cost(W, beta, X, Y, lambda0, lambda1, lambda2, lambda3, lambda5);
 
-        grad_W = 2*lambda0*(log(1+exp(X@beta))-Y*(X@beta))*W \
+        grad_W = 2*lambda0*(np.log(1+np.exp(X@beta))-Y*(X@beta))*W \
                 +lambda1*balance_grad(W, X)@np.ones([m,1]) \
                 +4*lambda2*W*W*W \
                 +4*lambda5*(sum(W*W)-1)*W;
@@ -131,23 +131,52 @@ def mainFunc(X, Y, \
     
     return W, beta, J_loss
 
-X = 2*np.round(np.random.rand(1000, 20))-1; # 1000 samples and 20 features
-beta_true = np.ones([20, 1]);
-Y = (sigmoid(np.dot(X,beta_true))>=0.5).astype('double');
-lambda0 = 1; #Logistic loss
-lambda1 = 0.1; #Balancing loss
-lambda2 = 1; #L_2 norm of sample weight
-lambda3 = 0; #L_2 norm of beta
-lambda4 = 0.001; #L_1 norm of bata
-lambda5 = 1; #Normalization of sample weight
-MAXITER = 1000;
-ABSTOL = 1e-3;
-W_init = np.random.rand(1000, 1);
-beta_init = 0.5*np.ones([20, 1]);
+
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import KFold, train_test_split, GridSearchCV, cross_val_score
+from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, recall_score, precision_score, \
+    roc_curve, precision_recall_curve, average_precision_score, matthews_corrcoef, confusion_matrix
+
+def report_metrics(y_test, y_pred):
+    scorers = {'accuracy': accuracy_score,
+           'recall': recall_score,
+           'precision': precision_score,
+           'f1': f1_score,
+           'mcc': matthews_corrcoef
+    }
+    for metric in scorers.keys():
+        print('{} = {}'.format(metric, scorers[metric](y_test, y_pred)))
 
 
 if __name__ == '__main__':
-    W, beta, J_loss = mainFunc(X, Y,\
-        lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
-        1000, ABSTOL, W_init, beta_init)
-    print ('Train Accuracy: ', 1 - ((sigmoid(np.dot(X,beta))>=0.5).astype('double') - Y).sum()/Y.shape[0])
+    X = 2*np.round(np.random.rand(1000, 20))-1; # 1000 samples and 20 features
+    beta_true = np.ones([20, 1]);
+    Y = (sigmoid(np.dot(X,beta_true))>=0.5).astype('double');
+    lambda0 = 1; #Logistic loss
+    lambda1 = 0.1; #Balancing loss
+    lambda2 = 1; #L_2 norm of sample weight
+    lambda3 = 0; #L_2 norm of beta
+    lambda4 = 0.001; #L_1 norm of bata
+    lambda5 = 1; #Normalization of sample weight
+    MAXITER = 1000;
+    ABSTOL = 1e-3;
+
+    print ('***********classic logistic***********')
+    X_train, X_test, y_train, y_test = train_test_split(X,Y.astype('int'))
+    print('number of training samples: {}, test samples: {}'.format(X_train.shape[0], X_test.shape[0]))
+    model = LogisticRegression()
+    model.fit(X_train,y_train)
+    y_pred = model.predict(X_test)
+    report_metrics(y_test, y_pred)
+
+    print ('***********CRLR***********')
+    W_init = np.random.rand(X_train.shape[0], 1);
+    beta_init = 0.5*np.ones([20, 1]);
+
+    W, beta, J_loss = mainFunc(X_train, y_train,\
+            lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
+            1000, ABSTOL, W_init, beta_init)
+    y_pred = (sigmoid(np.dot(X_test,beta))>=0.5).astype('int')
+    report_metrics(y_test, y_pred)
+
