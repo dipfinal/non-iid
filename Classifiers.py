@@ -1,3 +1,4 @@
+DEBUG = False
 from classifier import Classifier
 import numpy as np
 from sklearn.svm import SVC
@@ -87,13 +88,19 @@ class CRLR_SVM(Classifier):
     lambda3 = 0  # L_2 norm of beta
     lambda4 = 0.001  # L_1 norm of bata
     lambda5 = 1  # Normalization of sample weight
-    MAXITER = 1000
+    # MAXITER = 1000
+    if DEBUG:
+        MAXITER = 10
+    else:
+        MAXITER = 300
     ABSTOL = 1e-3
 
     def __init(self):
         pass
     def train(self,X,Y):
-        self.clfs = [SVC(gamma="auto", kernel='rbf', class_weight='balanced', probability=True) for i in range(10)]
+        # self.clfs = [SVC(gamma="auto", kernel='rbf', class_weight='balanced', probability=True) for i in range(10)]
+        self.betas = []
+        X = X*2-1.0
         for i in range(10):
             Y_ = Y[:, 0].copy()
             for j in range(Y_.shape[0]):
@@ -109,18 +116,17 @@ class CRLR_SVM(Classifier):
             beta_init = 0.5 * np.ones([n_feature, 1])
             W, beta, J_loss = mainFunc(X, Y_, \
                                        self.lambda0, self.lambda1, self.lambda2, self.lambda3, self.lambda4, self.lambda5, \
-                                       1000, self.ABSTOL, W_init, beta_init)
-
-            for i in range(n_sample):
-                for j in range(n_feature):
-                    X[i][j] *= beta[j]
-            self.clfs[i].fit(X, Y_,sample_weight=np.squeeze(beta))
-
+                                       self.MAXITER, self.ABSTOL, W_init, beta_init)
+            self.betas.append(beta)
+    # def sigmoid(self,x):
+    #    return 1/(1+np.exp(-x))
     def predict(self, X):
+        X = X*2-1.0
         Y = np.empty(shape=(X.shape[0], 0))
-        for clf in self.clfs:
-            Y = np.concatenate((Y, clf.predict_proba(X)[:, 1][:, np.newaxis]), axis=1)
-
+        def sigmoid(x):
+            return 1/(np.exp(-x)+1)
+        for beta in self.betas:
+            Y = np.concatenate((Y, sigmoid(np.dot(X,beta))), axis=1)
         Y = np.argmax(Y, axis=1)
         return Y
 

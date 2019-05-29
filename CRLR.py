@@ -80,7 +80,8 @@ def mainFunc(X, Y, \
 
 
     # Optimization with gradient descent
-    for iter in tqdm(range(1,MAXITER+1)):
+    for iter in range(1,MAXITER+1):
+        print("iter=",iter)
         # Update beta
         y = beta;
         beta = beta + (iter/(iter+3))*(beta-beta_prev); # fast proximal gradient
@@ -95,6 +96,8 @@ def mainFunc(X, Y, \
                + (1/(2*lambda_beta))*sum((z-beta)**2):
                 break;
             lambda_beta = parameter_iter*lambda_beta;
+            if lambda_beta<1e-100:
+                break
         beta_prev = y;
         beta = z;
 
@@ -115,6 +118,8 @@ def mainFunc(X, Y, \
                     + (1/(2*lambda_W))*sum((z-W)**2):
                 break;
             lambda_W = parameter_iter*lambda_W;
+            if lambda_W<1e-100:
+                break
         W_prev = y;
         W = z;
 
