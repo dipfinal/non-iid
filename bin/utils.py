@@ -12,6 +12,17 @@ from scipy.stats import multivariate_normal
 from scipy.signal import argrelmax
 import scipy
 import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.naive_bayes import GaussianNB
+from sklearn.preprocessing import MinMaxScaler,StandardScaler,MaxAbsScaler,RobustScaler
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold
+from sklearn.model_selection import cross_val_score
+from sklearn.decomposition import PCA
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
+
 
 def mdn_logp(x, logpi, logsigma, mu):
     '''Loss function of a mixture density network is the negative log likelihood of a Gaussian mixture
@@ -39,43 +50,10 @@ def mdn_loss(x, logpi, logsigma, mu):
         '''
     return torch.mean(-mdn_logp(x, logpi, logsigma, mu))
 
-def prepare_dataset(featurename='rss'):
-    import scipy.io as sio
-    data_1 = sio.loadmat('data_paper_WSNL/1000data.mat')
-    data_2 = sio.loadmat('data_paper_WSNL/location.mat')
-    local = data_2['RXm'][:1000,:2]
-    rss = data_1['data_db_rss']
-    aoa = data_1['data_db_aoa']
-    toa = data_1['data_db_toa']
-    data_4 = data_1['data'][:,18:24]
-    data_5 = data_1['data'][:,24:]
-    data_6 = data_1['data'][:,6:]
-    data_whole = np.concatenate((rss,aoa,toa,data_4,data_5),axis =1)
-    local_x = local[:,:1]
-    local_y = local[:,1:]
-    if featurename=='whole':
-        return train_test_split(data_whole, local, random_state=42)
-    elif featurename=='rss':
-        return train_test_split(rss, local, random_state=42)
-    elif featurename=='aoa':
-        return train_test_split(aoa, local, random_state=42)
-    elif featurename=='toa':
-        return train_test_split(toa, local, random_state=42)
-    elif featurename=='data_4':
-        return train_test_split(data_4, local, random_state=42)
-    elif featurename=='data_5':
-        return train_test_split(data_5, local, random_state=42)
-    elif featurename=='data_6':
-        return train_test_split(data_6, local, random_state=42)
 
 
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import StandardScaler
 
-def preprocess_old(data):
-    scaler = MinMaxScaler()
-    scaler.fit(data)
-    return scaler.transform(data),scaler
+
 
 def preprocess(data,method='minmax'):
     if method =='minmax':
@@ -127,8 +105,63 @@ def get_original_parameters(logpi, logsigma, mu):
     mu = mu.detach().numpy()
     return pi, sigma, mu
 
-def report_metrics(y_test_data,y_test):
-    rmse = np.mean(np.sum((y_test_data - y_test)**2,axis=1)**0.5)
-    pcc = scipy.stats.pearsonr(y_test_data.ravel(),y_test.ravel())
+def report_metrics_regression(y_pred,y_test):
+    rmse = np.mean(np.sum((y_pred - y_test)**2,axis=1)**0.5)
+    pcc = scipy.stats.pearsonr(y_pred.ravel(),y_test.ravel())
     return rmse,pcc
 
+def report_metrics_classification(y_pred,y_test):
+    scorers = {'accuracy': accuracy_score,
+           'recall': recall_score,
+           'precision': precision_score,
+           'f1': f1_score,
+           'mcc': matthews_corrcoef
+            }
+    dicts = {}
+    for metric in scorers.keys():
+        print('{} = {}'.format(metric, scorers[metric](y_test, y_pred)))
+        dicts[metric] = scorers[metric](y_test, y_pred)
+    return rmse,pcc
+
+def prepare_dataset(datafile='data/BoW_Training.mat',valid_method = 'classic',train_context_num=5):
+    import scipy.io as sio
+    BoW_Training = sio.loadmat(datafile)['data']
+    print (BoW_Training.shape)
+    BoW_Training_x = BoW_Training[:,:50]
+    BoW_Training_y = BoW_Training[:,-2:]
+    if valid_method == 'classic':
+        return train_test_split(BoW_Training_x, BoW_Training_y, test_size=0.2, random_state=42)
+    elif valid_method =='non-iid':
+        '''
+        split the dataset so for each class, split 7 contexts into 5:2, 
+        predict 2 contexts corresponding class
+        '''
+        tmp_select_ind = np.array([]).astype('int')
+        for i in np.unique(BoW_Training_y[:,0]):
+            #print (np.unique(BoW_Training_y[:,1][BoW_Training_y[:,0] ==i]))
+            tmp_context_ind = np.random.choice(np.unique(BoW_Training_y[:,1][BoW_Training_y[:,0] ==i]),
+                             train_context_num,replace=False,)
+            tmp_select_ind = np.concatenate((tmp_select_ind,np.where( (BoW_Training_y[:,0]==i)& 
+                                (np.isin(BoW_Training_y[:,1],tmp_context_ind )==1) )[0]  ))
+
+        train_ind = tmp_select_ind
+        test_ind = np.setdiff1d(np.arange(0,BoW_Training_y.shape[0]),tmp_select_ind)
+        return BoW_Training_x[train_ind],BoW_Training_x[test_ind],BoW_Training_y[train_ind],\
+                BoW_Training_y[test_ind],train_ind,test_ind
+
+def oneHotEncoding(y, numOfClasses):
+    """
+    Convert a vector into one-hot encoding matrix where that particular column value is 1 and rest 0 for that row.
+    :param y: Label vector
+    :param numOfClasses: Number of unique labels
+    :return: one-hot encoding matrix
+    """
+    y = np.asarray(y, dtype='int32')
+    if len(y) > 1:
+        y = y.reshape(-1)
+    if not numOfClasses:
+        numOfClasses = np.max(y) + 1
+    yMatrix = np.zeros((len(y), numOfClasses))
+    yMatrix[np.arange(len(y)), y] = 1
+    return yMatrix
+    

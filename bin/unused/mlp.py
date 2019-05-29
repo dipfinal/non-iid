@@ -69,7 +69,6 @@ class MLPNet(nn.Module):
         self.n_input  = n_input
         self.n_hidden_1 = n_hidden_1
         self.n_hidden_2 = n_hidden_2
-        self.n_output =  n_output
         self.fc1 = nn.Linear(n_input, n_hidden_1)
         self.fc2 = nn.Linear(n_hidden_1, n_hidden_2)
         self.fc3 = nn.Linear(n_hidden_2, n_hidden_3)
