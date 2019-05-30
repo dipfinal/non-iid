@@ -19,6 +19,11 @@ for sample in data:
         trainX = np.concatenate((trainX,sample[np.newaxis,:50]))
         trainY = np.concatenate((trainY,sample[np.newaxis,-2:]))
 
+trainX = trainX.astype(np.int)
+trainY = trainY.astype(np.int)
+valX = valX.astype(np.int)
+valY = valY.astype(np.int)
+
 print("trainX.shape = ",trainX.shape)
 print("trainY.shape = ",trainY.shape)
 print("valX.shape = ",valX.shape)
