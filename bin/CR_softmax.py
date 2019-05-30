@@ -15,6 +15,22 @@ warnings.filterwarnings('ignore')
 from numba import jit
  
 
+def oneHotEncoding(y, numOfClasses):
+    """
+    Convert a vector into one-hot encoding matrix where that particular column value is 1 and rest 0 for that row.
+    :param y: Label vector
+    :param numOfClasses: Number of unique labels
+    :return: one-hot encoding matrix
+    """
+    y = np.asarray(y, dtype='int32')
+    if len(y) > 1:
+        y = y.reshape(-1)
+    if not numOfClasses:
+        numOfClasses = np.max(y) + 1
+    yMatrix = np.zeros((len(y), numOfClasses))
+    yMatrix[np.arange(len(y)), y] = 1
+    return yMatrix
+    
 #TODO: softmax more complex
 @jit
 def sigmoid(x):
@@ -23,7 +39,7 @@ def sigmoid(x):
 #TODO: softmax have different lambda0 term
 @jit
 def J_cost(W,beta,X,Y,lambda0, lambda1, lambda2, lambda3, lambda5):
-    return lambda0*sum((W*W)*(np.log(1+np.exp(X@beta))-Y*(X@beta))) \
+    return lambda0*sum( (W*W)*( np.log(1+np.exp(X@beta))-Y*(X@beta) )  ) \
          +lambda1*sum(balance_cost(W,X)) \
          +lambda2*((W*W).T@(W*W)) \
          +lambda3*sum(beta**2) \
