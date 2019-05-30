@@ -12,7 +12,7 @@ if __name__ =="__main__":
     clf = CRLR_SVM()
     clf.train(trainX,trainY)
     Y = clf.predict(valX)
-
+    print(Y)
 
     #clf = SVMClassifier()
     #clf.train(trainX,trainY)
