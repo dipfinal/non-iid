@@ -4,7 +4,6 @@ import numpy as np
 from sklearn.svm import SVC
 from sklearn import tree
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.linear_model import LogisticRegression
 from CRLR import mainFunc
 class KNNClassifier(Classifier):
     def __init__(self):
@@ -82,33 +81,6 @@ class SVMClassifier(Classifier):
         Y = np.argmax(Y,axis=1)
         return Y
 
-
-
-class LogisticClassifier(Classifier):
-    def __init__(self):
-        pass
-    def train(self,X,Y):
-        self.clfs = [LogisticRegression(n_jobs = 4) for i in range(10)]
-        for i in range(10):
-            Y_ = Y[:,0].copy()
-            for j in range(Y_.shape[0]):
-                if(Y_[j]==i):
-                    Y_[j]==1
-                else:
-                    Y_[j]==0
-            self.clfs[i].fit(X,Y_)
-    def predict(self,X):
-        Y = np.empty(shape=(X.shape[0],0))
-        for clf in self.clfs:
-            Y = np.concatenate((Y,clf.predict_proba(X)[:,1][:,np.newaxis]),axis=1)
-        print(Y)
-        Y = np.argmax(Y,axis=1)
-        return Y
-
-
-
-
-
 class CRLR_SVM(Classifier):
     lambda0 = 1  # Logistic loss
     lambda1 = 0.1  # Balancing loss
@@ -123,7 +95,7 @@ class CRLR_SVM(Classifier):
         MAXITER = 300
     ABSTOL = 1e-3
 
-    def __init__(self):
+    def __init(self):
         pass
     def train(self,X,Y):
         # self.clfs = [SVC(gamma="auto", kernel='rbf', class_weight='balanced', probability=True) for i in range(10)]
