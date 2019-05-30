@@ -12,22 +12,18 @@ import sklearn
 from scipy.stats import pearsonr
 import warnings
 warnings.filterwarnings('ignore')
-from numba import jit
- 
 
 
-@jit
 def sigmoid(x):
     return 1/(1+np.exp(-x))
 
-@jit
 def J_cost(W,beta,X,Y,lambda0, lambda1, lambda2, lambda3, lambda5):
     return lambda0*sum((W*W)*(np.log(1+np.exp(X@beta))-Y*(X@beta))) \
          +lambda1*sum(balance_cost(W,X)) \
          +lambda2*((W*W).T@(W*W)) \
          +lambda3*sum(beta**2) \
          +lambda5*(sum(W*W)-1)**2
-@jit
+
 def balance_cost(W=None,X=None,*args,**kwargs):
     m = X.shape[1]  
     f_x=np.zeros([m,1])
@@ -40,7 +36,7 @@ def balance_cost(W=None,X=None,*args,**kwargs):
         #print (loss.shape)
         f_x[i]=np.dot(loss.T,loss)
     return f_x
-@jit   
+    
 def balance_grad(W=None,X=None,*args,**kwargs):
     n,m=X.shape
     
@@ -59,11 +55,10 @@ def balance_grad(W=None,X=None,*args,**kwargs):
     
     return g_w
 
-@jit
 def prox_l1(v=None,lambda_=None,*args,**kwargs):
     x=np.fmax(0,v - lambda_) - np.fmax(0,- v - lambda_)
     return x
-@jit
+
 def mainFunc(X, Y, \
     lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
     MAXITER, ABSTOL, W_init, beta_init):

@@ -15,11 +15,12 @@ warnings.filterwarnings('ignore')
 from numba import jit
  
 
-
+#TODO: softmax more complex
 @jit
 def sigmoid(x):
     return 1/(1+np.exp(-x))
 
+#TODO: softmax have different lambda0 term
 @jit
 def J_cost(W,beta,X,Y,lambda0, lambda1, lambda2, lambda3, lambda5):
     return lambda0*sum((W*W)*(np.log(1+np.exp(X@beta))-Y*(X@beta))) \
@@ -27,6 +28,8 @@ def J_cost(W,beta,X,Y,lambda0, lambda1, lambda2, lambda3, lambda5):
          +lambda2*((W*W).T@(W*W)) \
          +lambda3*sum(beta**2) \
          +lambda5*(sum(W*W)-1)**2
+
+#TODO: it seems do not need to change, means than we can adapt this function into any gradient descent problem
 @jit
 def balance_cost(W=None,X=None,*args,**kwargs):
     m = X.shape[1]  
@@ -40,6 +43,7 @@ def balance_cost(W=None,X=None,*args,**kwargs):
         #print (loss.shape)
         f_x[i]=np.dot(loss.T,loss)
     return f_x
+
 @jit   
 def balance_grad(W=None,X=None,*args,**kwargs):
     n,m=X.shape
@@ -59,10 +63,13 @@ def balance_grad(W=None,X=None,*args,**kwargs):
     
     return g_w
 
+#TODO: it is also universal?
 @jit
 def prox_l1(v=None,lambda_=None,*args,**kwargs):
     x=np.fmax(0,v - lambda_) - np.fmax(0,- v - lambda_)
     return x
+
+#TODO: careful change
 @jit
 def mainFunc(X, Y, \
     lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
