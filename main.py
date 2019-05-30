@@ -9,10 +9,10 @@ if __name__ =="__main__":
     trainY = np.load("./trainY.npy")
     valX = np.load("./valX.npy")
     valY = np.load("./valY.npy")
-    clf = CRLR_SVM()
+    clf = SVMClassifier()
     clf.train(trainX,trainY)
     Y = clf.predict(valX)
-    print(Y)
+    #print(Y)
 
     #clf = SVMClassifier()
     #clf.train(trainX,trainY)
