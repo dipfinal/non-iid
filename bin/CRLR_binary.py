@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings('ignore')
 from numba import jit
 
-
+eps = 10e-3
 
 @jit
 def sigmoid(x):
@@ -142,6 +142,8 @@ def mainFunc(X, Y, \
             np.savetxt(paras_save_path+'/J_loss.txt',J_loss)
         if (iter > 1) & ( abs(J_loss[iter-1] - J_loss[iter-2])[0]  < ABSTOL) or (iter == MAXITER):
             break
+        #if (iter > 11) & ( ((J_loss[1:]-J_loss[:-1])[-10:]>0).sum()>0  ) or (iter == MAXITER):
+         #   break
     W = W*W
 
     return W, beta, J_loss
