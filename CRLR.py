@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings('ignore')
 from numba import jit
 
-eps = 1e-10
+eps=1e-10
 
 @jit
 def sigmoid(x):
@@ -62,7 +62,7 @@ def prox_l1(v=None,lambda_=None,*args,**kwargs):
 @jit
 def mainFunc(X, Y, \
     lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
-    MAXITER, ABSTOL, W_init, beta_init):
+    MAXITER, ABSTOL, W_init, beta_init,paras_save_path=None):
 
     n,m = X.shape
     W = W_init
@@ -133,9 +133,13 @@ def mainFunc(X, Y, \
                               lambda0, lambda1, lambda2, lambda3, lambda5)\
                      + lambda4*sum(abs(beta))
         print (J_loss[iter-1] , J_loss[iter-2])
-        np.savetxt('output/models/crlr/beta.txt',beta_All)
-        np.savetxt('output/models/crlr/W.txt',W_All)
-        np.savetxt('output/models/crlr/J_loss.txt',J_loss)
+        if (paras_save_path is not None) & (iter%10==1):
+            #'output/models/crlr/somedir'
+            if not os.path.exists(paras_save_path):
+                os.makedirs(paras_save_path)
+            np.savetxt(paras_save_path+'/beta.txt',beta)
+            np.savetxt(paras_save_path+'/W.txt',W)
+            np.savetxt(paras_save_path+'/J_loss.txt',J_loss)
         if (iter > 1) & ( abs(J_loss[iter-1] - J_loss[iter-2])[0]  < ABSTOL) or (iter == MAXITER):
             break
     W = W*W
@@ -161,6 +165,7 @@ def report_metrics(y_test, y_pred):
 
 
 if __name__ == '__main__':
+    '''
     sample_size = 6000
     feature_size = 50
     X = 2*np.round(np.random.rand(sample_size, feature_size))-1 # 1000 samples and 20 features
@@ -172,9 +177,7 @@ if __name__ == '__main__':
     lambda3 = 0 #L_2 norm of beta
     lambda4 = 0.001 #L_1 norm of bata
     lambda5 = 1 #Normalization of sample weight
-    MAXITER = 1000
     ABSTOL = 1e-3
-
     print ('***********classic logistic***********')
     X_train, X_test, y_train, y_test = train_test_split(X,Y.astype('int'))
     print('number of training samples: {}, test samples: {}'.format(X_train.shape[0], X_test.shape[0]))
@@ -182,13 +185,52 @@ if __name__ == '__main__':
     model.fit(X_train,y_train)
     y_pred = model.predict(X_test)
     report_metrics(y_test, y_pred)
+    '''
 
     print ('***********CRLR***********')
-    W_init = np.random.rand(X_train.shape[0], 1)
-    beta_init = 0.5*np.ones([feature_size, 1])
+    sample_size = 6000
+    feature_size = 50
+    X = 2*np.round(np.random.rand(sample_size, feature_size))-1 # 1000 samples and 20 features
+    beta_true = np.ones([feature_size, 1])
+    Y = (sigmoid(np.dot(X,beta_true))>=0.5).astype('double')
+    X_train, X_test, y_train, y_test = train_test_split(X,Y.astype('int'))
+    print('number of training samples: {}, test samples: {}'.format(X_train.shape[0], X_test.shape[0]))
+    lambda0 = 1 #Logistic loss
+    lambda1 = 0.1 #Balancing loss
+    lambda2 = 1 #L_2 norm of sample weight
+    lambda3 = 0 #L_2 norm of beta
+    lambda4 = 0.001 #L_1 norm of bata
+    lambda5 = 1 #Normalization of sample weight
+    ABSTOL = 1e-3
+    import argparse
+    parser = argparse.ArgumentParser(description='save and reload parameters')
+    parser.add_argument('--save', dest='paras_save_path',  default=None, help='specify dir to save parameters')
+    parser.add_argument('--load', dest='paras_load_path',default=None, help='specify dir to load parameters')
+    parser.add_argument('--max_iter', dest='max_iter',default=1000,type=int, help='max iteration')
+    parser.add_argument('--eps', dest='eps',default=10e-10,type=float, help='epsilon to avoid zero division')
+    args = parser.parse_args()
+
+
+
+    MAXITER = args.max_iter
+    eps = args.eps
+    paras_load_path = args.paras_load_path
+    paras_save_path = args.paras_save_path
+
+    if paras_load_path is not None:  #'output/models/crlr/somedir'
+        W_init = np.loadtxt(paras_load_path+'/W.txt').reshape(-1,1)
+        beta_init = np.loadtxt(paras_load_path+'/beta.txt').reshape(-1,1)
+    else:
+        W_init = np.random.rand(X_train.shape[0], 1)
+        beta_init = 0.5*np.ones([feature_size, 1])
 
     W, beta, J_loss = mainFunc(X_train, y_train,\
             lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
-            1000, ABSTOL, W_init, beta_init)
+            1000, ABSTOL, W_init, beta_init, paras_save_path)
     y_pred = (sigmoid(np.dot(X_test,beta))>=0.5).astype('int')
     report_metrics(y_test, y_pred)
+
+    '''
+    python3 bin/CRLR_binary.py --save 'output/models/crlr/0' --max_iter 100 --eps 10e-10
+    python3 bin/CRLR_binary.py --save 'output/models/crlr/0' --load 'output/models/crlr/0' --max_iter 100 --eps 10e-10
+    '''
