@@ -132,7 +132,12 @@ def mainFunc(X, Y, \
         J_loss[iter-1] = J_cost(W, beta, X, Y,\
                               lambda0, lambda1, lambda2, lambda3, lambda5)\
                      + lambda4*sum(abs(beta))
-        print (J_loss[iter-1] , J_loss[iter-2])
+        print (lambda0*sum((W*W)*(np.log(1+np.exp(X@beta))-Y*(X@beta))) ,
+         lambda1*sum(balance_cost(W,X)), \
+         lambda2*((W*W).T@(W*W)), \
+         lambda3*sum(beta**2), \
+         lambda5*(sum(W*W)-1)**2 , J_loss[iter-1])            
+        #print (J_loss[iter-1] , J_loss[iter-2])
         if (paras_save_path is not None) & (iter%10==1):
             #'output/models/crlr/somedir'
             if not os.path.exists(paras_save_path):
@@ -203,7 +208,7 @@ if __name__ == '__main__':
     lambda2 = 1 #L_2 norm of sample weight
     lambda3 = 0 #L_2 norm of beta
     lambda4 = 0.001 #L_1 norm of bata
-    lambda5 = 1 #Normalization of sample weight
+    lambda5 = 0.01 #Normalization of sample weight
     ABSTOL = 1e-3
     import argparse
     parser = argparse.ArgumentParser(description='save and reload parameters')
