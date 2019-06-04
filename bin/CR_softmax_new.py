@@ -13,27 +13,22 @@ from scipy.stats import pearsonr
 import warnings
 warnings.filterwarnings('ignore')
 from numba import jit
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler
-
-eps = 10e-3
+ 
 
 def sigmoid(x):
     #z = np.dot(X,W)
     exp_x = np.exp(x)
     sum_exp_x = np.sum(exp_x,axis=1)
     sum_exp_x= sum_exp_x.reshape((x.shape[0],1))
-    sigmoid = exp_x / (sum_exp_x+eps**3)
-    #print ('sigmoid',exp_x,sum_exp_x)
+    sigmoid = exp_x / sum_exp_x
     return sigmoid
-
 
 def cross_entropy_loss(W,X,Y,beta):
     '''
     part of J_loss first term
     '''
-    #print ('beta in CE:', beta)
+    n = X.shape[0]
     Y_cap = sigmoid(X@beta)
-    #print ('ycap',Y_cap)
     #weight_term = (W*W).reshape(-1,1)
     #print (weight_term.shape,(Y.reshape(-1,1)*np.log(Y_cap)).shape)
     loss = -np.sum((W*W)*(Y*np.log(Y_cap)))
@@ -57,7 +52,6 @@ def balance_cost(W=None,X=None,*args,**kwargs):
     return f_x
 
 
-
 def balance_grad(W=None,X=None,*args,**kwargs):
     n,m=X.shape
 
@@ -76,32 +70,6 @@ def balance_grad(W=None,X=None,*args,**kwargs):
 
     return g_w
 
-def J_cost(W,beta,X,Y,lambda0, lambda1, lambda2, lambda3, lambda5):
-    term1 = lambda0*cross_entropy_loss(W,X,Y,beta)
-    term2 = lambda1*sum(balance_cost(W,X)) 
-    term3 = lambda2*np.sum((W*W).T@(W*W)) 
-    term4 = lambda3*np.sum(beta**2) 
-    term5 = lambda5*(sum(W*W)-1)**2
-    print ('terms of J loss',term1 , term2 , term3 , term4 , term5 )
-    #print ('beta in terms of J loss',beta)
-    return  term1 + term2 + term3 + term4 + term5 
-
-
-def grad_CE(lambda0,W,X,Y,beta):
-    '''
-    part of J_loss's first term grad
-    '''
-    n = X.shape[0]
-    Y_cap = sigmoid(X@beta)
-    #original sigmoid(X@beta)-Y)*(W*W)).T@X
-    grad = (lambda0*((Y_cap-Y)*(W*W)).T@X).T
-    return grad #应该是正的还是负的？
-
-
-def prox_l1(v=None,lambda_=None):
-    x=np.fmax(0,v - lambda_) - np.fmax(0,- v - lambda_)
-    return x
-#prox_l1输出的最终会成为小循环中的新beta
 
 def mainFunc(X, Y, \
     lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
@@ -138,14 +106,12 @@ def mainFunc(X, Y, \
                 z = beta - lambda_beta*grad_beta
             else:
                 z = prox_l1(beta - lambda_beta*grad_beta, lambda_beta*lambda4)
-
-            print ('beta',J_cost(W, z, X, Y, lambda0, lambda1, lambda2, lambda3, lambda5),
-            f_base , np.sum(grad_beta.T@(z-beta)),\
-            (1/(2*lambda_beta))*np.sum((z-beta)**2))
+            print ('beta',J_cost(W, z, X, Y, lambda0, lambda1, lambda2, lambda3, lambda5),f_base , np.sum(grad_beta.T@(z-beta)),\
+            (1/(2*lambda_beta))*sum((z-beta)**2))
             #grad_beta.T@(z-beta)
             if J_cost(W, z, X, Y, lambda0, lambda1, lambda2, lambda3, lambda5) \
                <= f_base + np.sum(grad_beta.T@(z-beta)) \
-               + (1/(2*lambda_beta))*np.sum((z-beta)**2):
+               + (1/(2*lambda_beta))*sum((z-beta)**2):
                 #print ('test1')
                 break
             lambda_beta = parameter_iter*lambda_beta
@@ -191,7 +157,7 @@ def mainFunc(X, Y, \
 
         J_loss[iter-1] = J_cost(W, beta, X, Y,\
                               lambda0, lambda1, lambda2, lambda3, lambda5)\
-                     + lambda4*np.sum(abs(beta))
+                     + lambda4*sum(abs(beta))
         #print (J_loss[iter-1] , J_loss[iter-2])
         print (lambda0*cross_entropy_loss(W,X,Y,beta),\
             lambda1*sum(balance_cost(W,X)) ,\
@@ -210,6 +176,47 @@ def mainFunc(X, Y, \
     W = W*W
 
     return W, beta, J_loss
+
+def prox_l1(v=None,lambda_=None):
+    x=np.fmax(0,v - lambda_) - np.fmax(0,- v - lambda_)
+    return x
+#prox_l1输出的最终会成为小循环中的新beta
+
+def J_cost(W,beta,X,Y,lambda0, lambda1, lambda2, lambda3, lambda5):
+    term1 = lambda0*cross_entropy_loss(W,X,Y,beta)
+    term2 = lambda1*sum(balance_cost(W,X)) 
+    term3 = lambda2*np.sum((W*W).T@(W*W)) 
+    term4 = lambda3*sum(beta**2) 
+    term5 = lambda5*(sum(W*W)-1)**2
+    #print (term1 , term2 , term3 , term4 , term5 )
+    return  term1 + term2 + term3 + term4 + term5 
+
+def grad_CE(lambda0,W,X,Y,beta):
+    '''
+    part of J_loss's first term grad
+    '''
+    n = X.shape[0]
+    Y_cap = sigmoid(X@beta)
+    #original sigmoid(X@beta)-Y)*(W*W)).T@X
+    grad = (lambda0*((Y_cap-Y)*(W*W)).T@X).T
+    return grad #应该是正的还是负的？
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold, train_test_split, GridSearchCV, cross_val_score
@@ -230,116 +237,35 @@ def report_metrics(y_test, y_pred):
 
 
 
+feature_num = 20
+sample_num = 500
+class_num = 10
+eps=10e-3
+X = 2*np.round(np.random.rand(sample_num, feature_num))-1; # 1000 samples and 20 features
+beta_true = np.random.random([feature_num, class_num]);
+Y = np.random.randint(0,9,500).reshape(-1,1) #sigmoid(np.dot(X,beta_true))
 
 
-if __name__ == '__main__':
+X_train, X_test, y_train, y_test = train_test_split(X,Y.astype('int'))
+print('number of training samples: {}, test samples: {}'.format(X_train.shape[0], X_test.shape[0]))
 
-    feature_num = 20
-    sample_num = 500
-    class_num = 10
-    eps=10e-3
-    X = 2*np.round(np.random.rand(sample_num, feature_num))-1; # 1000 samples and 20 features
-    beta_true = np.random.random([feature_num, class_num]);
-    Y = np.random.randint(0,9,500).reshape(-1,1) #sigmoid(np.dot(X,beta_true))
-    lambda0 = 3; #Logistic loss
-    lambda1 = 0.1; #Balancing loss
-    lambda2 = 1; #L_2 norm of sample weight
-    lambda3 = 0; #L_2 norm of beta
-    lambda4 = 0.001; #L_1 norm of bata
-    lambda5 = 5; #Normalization of sample weight
-    MAXITER = 1000;
-    ABSTOL = 1e-3;
-    #W_init = np.random.rand(sample_num, 1);
-    #beta_init = 0.5*np.ones([feature_num, class_num]);
 
-    '''
-    print ('***********classic softmax***********')
-    X_train, X_test, y_train, y_test = train_test_split(X,Y.astype('int'))
-    print('number of training samples: {}, test samples: {}'.format(X_train.shape[0], X_test.shape[0]))
-    model = LogisticRegression()
-    model.fit(X_train,y_train)
-    y_pred = model.predict(X_test)
-    report_metrics(y_test, y_pred)
-    '''
+lambda0 = 3; #Logistic loss
+lambda1 = 0.1; #Balancing loss
+lambda2 = 1; #L_2 norm of sample weight
+lambda3 = 0; #L_2 norm of beta
+lambda4 = 0.001; #L_1 norm of bata
+lambda5 = 5; #Normalization of sample weight
+MAXITER = 1000;
+ABSTOL = 1e-3;
+W_init = np.random.rand(X_train.shape[0], 1);
+beta_init = 0.5*np.ones([feature_num, class_num]);
 
 
 
-    print ('***********CR softmax***********')
-    import argparse
-    parser = argparse.ArgumentParser(description='save and reload parameters')
-    parser.add_argument('--save', dest='paras_save_path',  default=None, help='specify dir to save parameters')
-    parser.add_argument('--load', dest='paras_load_path',default=None, help='specify dir to load parameters')
-    parser.add_argument('--max_iter', dest='max_iter',default=1000,type=int, help='max iteration')
-    #parser.add_argument('--eps', dest='eps',default=1e-10,type=float, help='epsilon to avoid zero division')
-    parser.add_argument('--abs', dest='ABSTOL',default=1e-3,type=float, help='threshold to stop iteration')
-    parser.add_argument('--l1', dest='l1_use',default=1,type=int, help='use L1 or not')
-    args = parser.parse_args()
+W, beta, J_loss = mainFunc(X_train, y_train,\
+        lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
+        1000, ABSTOL, W_init, beta_init,l1_use=False)
 
-    l1_use = args.l1_use
-    ABSTOL = args.ABSTOL
-    MAXITER = args.max_iter
-    paras_load_path = args.paras_load_path
-    paras_save_path = args.paras_save_path
-
-    def prepare_dataset(datafile='data/BoW_Training.mat',valid_method = 'classic',train_context_num=5):
-        import scipy.io as sio
-        BoW_Training = sio.loadmat(datafile)['data']
-        print (BoW_Training.shape)
-        BoW_Training_x = BoW_Training[:,:50]
-        BoW_Training_y = BoW_Training[:,-2:]
-        if valid_method == 'classic':
-            return train_test_split(BoW_Training_x, BoW_Training_y, test_size=0.2, random_state=42)
-        elif valid_method =='non-iid':
-            '''
-            split the dataset so for each class, split 7 contexts into 5:2, 
-            predict 2 contexts corresponding class
-            '''
-            tmp_select_ind = np.array([]).astype('int')
-            for i in np.unique(BoW_Training_y[:,0]):
-                #print (np.unique(BoW_Training_y[:,1][BoW_Training_y[:,0] ==i]))
-                tmp_context_ind = np.random.choice(np.unique(BoW_Training_y[:,1][BoW_Training_y[:,0] ==i]),
-                                train_context_num,replace=False,)
-                tmp_select_ind = np.concatenate((tmp_select_ind,np.where( (BoW_Training_y[:,0]==i)& 
-                                    (np.isin(BoW_Training_y[:,1],tmp_context_ind )==1) )[0]  ))
-
-            train_ind = tmp_select_ind
-            test_ind = np.setdiff1d(np.arange(0,BoW_Training_y.shape[0]),tmp_select_ind)
-            return BoW_Training_x[train_ind],BoW_Training_x[test_ind],BoW_Training_y[train_ind],\
-                    BoW_Training_y[test_ind],train_ind,test_ind
-    X_train, X_test, y_train, y_test,_,_ = prepare_dataset(datafile='data/BoW_Training.mat',
-                                                        valid_method = 'non-iid',
-                                                         train_context_num=5)
-    print('number of training samples: {}, test samples: {}'.format(X_train.shape[0], X_test.shape[0]))
-    y_train,y_test = y_train[:,0].reshape(-1,1),y_test[:,0].reshape(-1,1)
-    def preprocess(data,method='minmax'):
-        if method =='minmax':
-            scaler = MinMaxScaler()
-            scaler.fit(data)
-        elif method =='zscore':
-            scaler = StandardScaler()
-            scaler.fit(data)
-        elif method =='robust':
-            scaler = RobustScaler()
-            scaler.fit(data)
-        return scaler.transform(data),scaler
-    X_train = preprocess(X_train,method='robust')[0]
-    X_test =  preprocess(X_test,method='robust')[0]
-
-    if paras_load_path is not None:  #'output/models/cr_softmax/'
-        W_init = np.loadtxt(paras_load_path+'/W.txt').reshape(-1,1)
-        beta_init = np.loadtxt(paras_load_path+'/beta.txt')
-    else:
-        W_init = np.random.rand(X_train.shape[0], 1);
-        beta_init = 0.5*np.ones([X_train.shape[1], np.unique(y_train).shape[0]]);
-
-    W, beta, J_loss = mainFunc(X_train, y_train,\
-            lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
-            1000, ABSTOL, W_init, beta_init, paras_save_path)
-
-    y_pred = np.argmax(sigmoid(np.dot(X_test,beta)),axis=1)
-    report_metrics(y_test, y_pred)
-
-    '''
-    python3 bin/CR_softmax.py --save 'output/models/cr_softmax'  --max_iter 100 --l1 0 \
-        --load 'output/models/cr_softmax/'
-    '''
+y_pred = np.argmax(sigmoid(np.dot(X_test,beta)),axis=1)
+report_metrics(y_test, y_pred)
