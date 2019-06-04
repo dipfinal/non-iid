@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings('ignore')
 from numba import jit
 
-eps=1e-10
+eps = 1e-10
 
 @jit
 def sigmoid(x):
@@ -81,8 +81,9 @@ def mainFunc(X, Y, \
 
 
     # Optimization with gradient descent
-    for iter in tqdm(range(1,MAXITER+1)):
+    for iter in range(1,MAXITER+1):
         # Update beta
+        print("iter = {}\t: ".format(iter),end="")
         y = np.copy(beta)
         beta = beta + (iter/(iter+3))*(beta-beta_prev) # fast proximal gradient
         f_base = J_cost(W, beta, X, Y, lambda0, lambda1, lambda2, lambda3, lambda5)
@@ -132,7 +133,12 @@ def mainFunc(X, Y, \
         J_loss[iter-1] = J_cost(W, beta, X, Y,\
                               lambda0, lambda1, lambda2, lambda3, lambda5)\
                      + lambda4*sum(abs(beta))
-        print (J_loss[iter-1] , J_loss[iter-2])
+        print(lambda0*sum((W*W)*(np.log(1+np.exp(X@beta))-Y*(X@beta))), \
+            lambda1*sum(balance_cost(W,X)), \
+            lambda2*((W*W).T@(W*W)), \
+            lambda3*sum(beta**2), \
+            lambda5*(sum(W*W)-1)**2)
+        #print (J_loss[iter-1] , J_loss[iter-2])
         if (paras_save_path is not None) & (iter%10==1):
             #'output/models/crlr/somedir'
             if not os.path.exists(paras_save_path):
@@ -142,6 +148,8 @@ def mainFunc(X, Y, \
             np.savetxt(paras_save_path+'/J_loss.txt',J_loss)
         if (iter > 1) & ( abs(J_loss[iter-1] - J_loss[iter-2])[0]  < ABSTOL) or (iter == MAXITER):
             break
+        #if (iter > 11) & ( ((J_loss[1:]-J_loss[:-1])[-10:]>0).sum()>0  ) or (iter == MAXITER):
+         #   break
     W = W*W
 
     return W, beta, J_loss

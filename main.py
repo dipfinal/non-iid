@@ -1,7 +1,7 @@
 import numpy as np
 from Classifiers import *
 from sklearn.model_selection import train_test_split
-from CRLR import mainFunc
+from CR_softmax import mainFunc
 def accuracy(Y,Y_):
     return 1.0*np.sum(Y==Y_)/Y.shape[0]
 
@@ -24,7 +24,8 @@ if __name__ =="__main__":
     trainX, valX, trainY, valY = train_test_split(X, Y.astype('int'))
     print('number of training samples: {}, test samples: {}'.format(trainX.shape[0], valX.shape[0]))
     """
-    clf = CRLR(n_label=10)
+    clf = NN()
     clf.train(trainX,trainY)
     valY_ = clf.predict(valX)
+    print(valY_)
     print(accuracy(valY_,valY[:,0]))
