@@ -26,6 +26,10 @@ if __name__ =="__main__":
     """
     clf = NN()
     clf.train(trainX,trainY)
+
     valY_ = clf.predict(valX)
     print(valY_)
     print(accuracy(valY_,valY[:,0]))
+
+    trainY_ = clf.predict(trainX)
+    print(accuracy(trainY_,trainY[:,0]))

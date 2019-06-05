@@ -247,7 +247,7 @@ class CRLR_softmax(Classifier):
     lambda1 = 0.1  # Balancing loss
     lambda2 = 1  # L_2 norm of sample weight
     lambda3 = 0  # L_2 norm of beta
-    lambda4 = 0.001  # L_1 norm of bata
+    lambda4 = 1e-5  # L_1 norm of bata
     lambda5 = 1  # Normalization of sample weight
     # MAXITER = 1000
     if DEBUG:
@@ -303,67 +303,77 @@ class MyNN(torch.nn.Module):
         )
         self.c = Variable(torch.ones(n_feature).type(torch.FloatTensor),requires_grad=False)
         self.w = Variable(torch.randn(n_feature).type(torch.FloatTensor),requires_grad=True)
+        self.half = Variable(torch.ones(n_feature).type(torch.FloatTensor)/2,requires_grad=False)
         self.beta1 = torch.clamp(self.w,float(0.0),float(1.0)).type(torch.FloatTensor)
         self.beta2 = torch.clamp(self.c-self.w,float(0.0),float(1.0)).type(torch.FloatTensor)
     def forward(self,x):    # (-1,n_feature)
-        x1 = x.type(torch.FloatTensor) * self.beta1     # (-1,n_feature)
-        x2 = x.type(torch.FloatTensor) * self.beta2
+        x1 = x.type(torch.FloatTensor) * self.w#self.beta1     # (-1,n_feature)
+        x2 = x.type(torch.FloatTensor) * (self.c-self.w)#self.beta2
         y1 = self.net1(x1)               # (-1,n_label)
         y2 = self.net2(x2)
-        y = torch.cat((y1,y2),dim=1)        # (-1,2*n_label)
-        return y.type(torch.FloatTensor)
-
+        return y1,y2
+        
 class NN(Classifier):
-    epoches = 1
-    batch_size = 32
-    learning_rate = 0.01
+    if DEBUG:
+        epoches = 1
+    else:
+        epoches = 1000
+    batch_size =128
+    learning_rate = 0.1
     lambda1 = 1.0
     lambda2 = 1.0
     lambda3 = 1.0
+    #gpu = torch.cuda.is_available()
     def __init__(self,n_feature=50,n_label=10):
         super(NN,self).__init__()
         self.n_feature=n_feature
         self.n_label = n_label
         self.net = MyNN(n_feature,10,n_label)
+        #if gpu:
+        #    self.net = self.net.cuda()
     def train(self,X,Y,*args,**kwargs): #X: (n_sample,n_feature) Y: (n_sample,2)
         X = X.astype(np.float)
         X = normalize(X, norm='l1', axis=1)
-        y0 = Y[:,0]
-        y1 = Y[:,1]
-        Y = np.zeros((X.shape[0],self.n_label*2))
         
-        for i in range(X.shape[0]):
-            Y[i][y0[i]] = 1
-            Y[i][y1[i]+10] = 1
-        
-        Y = Y.astype(np.float)
-        optimizer = torch.optim.Adam(self.net.parameters(),lr=self.learning_rate)
-        loss_Func = nn.MSELoss()
+
+        optimizer = torch.optim.Adam([
+                {'params':self.net.net1.parameters(),'weight_decay':self.lambda1},
+                {'params':self.net.net2.parameters(),'weight_decay':self.lambda2},
+                {'params':self.net.w}
+            ],lr=self.learning_rate)
+        MSE = nn.MSELoss()
+        CrossEntropy = nn.CrossEntropyLoss()
+        #if gpu:
+        #    MSE = MSE.cuda()
+        #    CrossEntropy = CrossEntropy.cuda()
         dataset = Data.TensorDataset(torch.from_numpy(X),torch.from_numpy(Y))
         train_loader = Data.DataLoader(dataset=dataset,batch_size=self.batch_size,shuffle=True,num_workers=4)
             
         for epoch in range(self.epoches):
             print("epoch = ",epoch)
+            Flag = False
             for batch_x,batch_y in train_loader:
-                y = self.net(batch_x)
-                loss = loss_Func(batch_y.type(torch.FloatTensor),y)
-                for param in self.net.net1.parameters():
-                    loss += self.lambda1 * torch.norm(param,2)
-                for param in self.net.net2.parameters():
-                    loss += self.lambda2 * torch.norm(param,2)
-                half = Variable(torch.ones(self.n_feature).type(torch.FloatTensor)/2, requires_grad=False)
-                print(half.shape,self.net.w.shape)
-                loss -= self.lambda3 * loss_Func(half,self.net.w)
+                #if gpu:
+                #    batch_x = batch_x.cuda()
+                y1,y2 = self.net(batch_x)
+                y1_,y2_ = batch_y[:,0],batch_y[:,1]
+                #if gpu:
+                #    y1_ = y1_.cuda()
+                #    y2_ = y2_.cuda()
+                #loss = CrossEntropy(y1,y1_)
+                #loss = -self.lambda3 * MSE(self.net.half,self.net.w)
+                loss = CrossEntropy(y1,y1_)+CrossEntropy(y2,y2_)
+                if not Flag:
+                    print(loss)
+                    Flag = True
                 optimizer.zero_grad()
-                loss.backward()
+                loss.backward(retain_graph=True)
                 optimizer.step()
         
     def predict(self,X,*args,**kwargs):
-        Y = self.net(torch.from_numpy(X).type(torch.FloatTensor))     # -1,2*n_feature
+        y1,y2 = self.net(torch.from_numpy(X).type(torch.FloatTensor))     # -1,2*n_feature
         #print(Y)
-        Y = Y.data.numpy()
-        #print(np.array_split(Y,self.2,axis=1))
-        y1,y2 = tuple(np.array_split(Y,2,axis=1))
+        y1 = y1.data.numpy()
         pred = np.argmax(y1,axis=1)
         return pred
         
