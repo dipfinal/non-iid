@@ -291,18 +291,25 @@ class MyNN(torch.nn.Module):
 
     def __init__(self,n_feature,n_hidden,n_label):
         super(MyNN,self).__init__()
-        self.net = torch.nn.Sequential(
+        self.net1 = torch.nn.Sequential(
+            nn.Linear(n_feature,n_hidden),
+            nn.ReLU(),
+            nn.Linear(n_hidden,n_label)            
+        )
+        self.net2 = torch.nn.Sequential(
             nn.Linear(n_feature,n_hidden),
             nn.ReLU(),
             nn.Linear(n_hidden,n_label)            
         )
         self.c = Variable(torch.ones(n_feature).type(torch.FloatTensor),requires_grad=False)
         self.w = Variable(torch.randn(n_feature).type(torch.FloatTensor),requires_grad=True)
-    def forward(self,x):                                # (-1,n_feature)
-        x1 = x.type(torch.FloatTensor) * torch.clamp(self.w,float(0.0),float(1.0)).type(torch.FloatTensor)     # (-1,n_feature)
-        x2 = x.type(torch.FloatTensor) * torch.clamp(self.c-self.w,float(0.0),float(1.0)).type(torch.FloatTensor)
-        y1 = self.net(x1)               # (-1,n_label)
-        y2 = self.net(x2)
+        self.beta1 = torch.clamp(self.w,float(0.0),float(1.0)).type(torch.FloatTensor)
+        self.beta2 = torch.clamp(self.c-self.w,float(0.0),float(1.0)).type(torch.FloatTensor)
+    def forward(self,x):    # (-1,n_feature)
+        x1 = x.type(torch.FloatTensor) * self.beta1     # (-1,n_feature)
+        x2 = x.type(torch.FloatTensor) * self.beta2
+        y1 = self.net1(x1)               # (-1,n_label)
+        y2 = self.net2(x2)
         y = torch.cat((y1,y2),dim=1)        # (-1,2*n_label)
         return y.type(torch.FloatTensor)
 
@@ -310,6 +317,9 @@ class NN(Classifier):
     epoches = 1
     batch_size = 32
     learning_rate = 0.01
+    lambda1 = 1.0
+    lambda2 = 1.0
+    lambda3 = 1.0
     def __init__(self,n_feature=50,n_label=10):
         super(NN,self).__init__()
         self.n_feature=n_feature
@@ -337,6 +347,13 @@ class NN(Classifier):
             for batch_x,batch_y in train_loader:
                 y = self.net(batch_x)
                 loss = loss_Func(batch_y.type(torch.FloatTensor),y)
+                for param in self.net.net1.parameters():
+                    loss += self.lambda1 * torch.norm(param,2)
+                for param in self.net.net2.parameters():
+                    loss += self.lambda2 * torch.norm(param,2)
+                half = Variable(torch.ones(self.n_feature).type(torch.FloatTensor)/2, requires_grad=False)
+                print(half.shape,self.net.w.shape)
+                loss -= self.lambda3 * loss_Func(half,self.net.w)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
