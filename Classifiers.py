@@ -311,6 +311,8 @@ class MyNN(torch.nn.Module):
         x2 = x.type(torch.FloatTensor) * (self.c-self.w)#self.beta2
         y1 = self.net1(x1)               # (-1,n_label)
         y2 = self.net2(x2)
+        y1 = nn.functional.log_softmax(y1)
+        y2 = nn.functional.log_softmax(y2)
         return y1,y2
         
 class NN(Classifier):
