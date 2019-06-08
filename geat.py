@@ -24,7 +24,7 @@ N : 每一代有N个个体
 min_feature_num = 10
 max_depth_alpha = 0.5
 max_depth = 20
-N = 10 
+N = 5 
 MaxGeneration = 10
 Feature = 50
 GGAP = 0.1
@@ -59,13 +59,14 @@ if __name__ == "__main__":
     ])
     [pop_trace,var_trace,times] = geatpy.sga_new_real_templet(
         AIM_M, 'aimfunc', None, None, FieldD, 'I', 1, MaxGeneration, N, 1, GGAP, 'rws', 'xovsp', recopt, pm, False, 1)
-    geatpy.trcplot(pop_trace, [['各代种群最优目标函数值'], ['各代种群个体平均适应度值', '各代种群最优个体适应度值']], ['demo_result1', 'demo_result2'])
-    # 输出结果
     best_gen = np.argmin(pop_trace[:, 0]) # 记录最优种群是在哪一代
-    print('最优的目标函数值为：', np.min(pop_trace[:, 0]))
-    print('最优的控制变量值为：')
+    print('best target function = ', np.min(pop_trace[:, 0]))
+    print('best variable = ')
     for i in range(var_trace.shape[1]):
         print(var_trace[best_gen, i])
-    print('最优的一代是第',best_gen + 1,'代')
-    print('用时：', times, '秒')
+    print('best generation = ',best_gen + 1)
+    print('time=', times, 's')
+    geatpy.trcplot(pop_trace, [['各代种群最优目标函数值'], ['各代种群个体平均适应度值', '各代种群最优个体适应度值']], ['demo_result1', 'demo_result2'])
+    # 输出结果
+
     
