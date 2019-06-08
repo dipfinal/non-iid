@@ -69,9 +69,12 @@ class DTClassifier(Classifier):
         self.n_feature = n_feature
         self.n_label = n_label
     def train(self,X,Y,*args,**kwargs):
+        self.n_feature = X.shape[1]
+        max_depth = 20
+        max_depth_alpha = 0.5
         X = X.astype(np.float)
         X = normalize(X, norm='l1',axis=1)
-        self.clf = tree.DecisionTreeClassifier(min_samples_split=35)
+        self.clf = tree.DecisionTreeClassifier(max_depth=max_depth_alpha*self.n_feature,min_samples_leaf=10)
         self.clf.fit(X,Y[:,0])
     def predict(self,X,*args,**kwargs):
         X = X.astype(np.float)
