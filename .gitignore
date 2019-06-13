@@ -12,7 +12,7 @@ output/
 rsync.sh
 exclude_me.txt
 work_report/
-
+*.pptx
 *.pdf
 # Distribution / packaging
 .Python
