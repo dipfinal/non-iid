@@ -11,6 +11,7 @@ data/
 output/
 rsync.sh
 exclude_me.txt
+work_report/
 
 *.pdf
 # Distribution / packaging

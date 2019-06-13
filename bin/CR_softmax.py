@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+
 import gc, argparse, sys, os, errno
 import numpy as np
 import pandas as pd
@@ -25,7 +26,6 @@ def sigmoid(x):
     sigmoid = exp_x / (sum_exp_x+eps**3)
     #print ('sigmoid',exp_x,sum_exp_x)
     return sigmoid
-
 
 def cross_entropy_loss(W,X,Y,beta):
     '''
@@ -82,10 +82,9 @@ def J_cost(W,beta,X,Y,lambda0, lambda1, lambda2, lambda3, lambda5):
     term3 = lambda2*np.sum((W*W).T@(W*W)) 
     term4 = lambda3*np.sum(beta**2) 
     term5 = lambda5*(sum(W*W)-1)**2
-    print ('terms of J loss',term1 , term2 , term3 , term4 , term5 )
+    #print ('terms of J loss',term1 , term2 , term3 , term4 , term5 )
     #print ('beta in terms of J loss',beta)
     return  term1 + term2 + term3 + term4 + term5 
-
 
 def grad_CE(lambda0,W,X,Y,beta):
     '''
@@ -97,7 +96,6 @@ def grad_CE(lambda0,W,X,Y,beta):
     grad = (lambda0*((Y_cap-Y)*(W*W)).T@X).T
     return grad #应该是正的还是负的？
 
-
 def prox_l1(v=None,lambda_=None):
     x=np.fmax(0,v - lambda_) - np.fmax(0,- v - lambda_)
     return x
@@ -106,7 +104,7 @@ def prox_l1(v=None,lambda_=None):
 def mainFunc(X, Y, \
     lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
     MAXITER, ABSTOL, W_init, beta_init,paras_save_path=None,l1_use=False):
-
+    print ('betashape',beta_init.shape)
     n,m = X.shape
     W = W_init
     W_prev = np.copy(W)
@@ -120,14 +118,14 @@ def mainFunc(X, Y, \
     lambda_beta = 1
 
     W_All = np.zeros([n, MAXITER])
-    beta_All = np.zeros([m,class_num, MAXITER])
+    beta_All = np.zeros([m,Y.shape[1], MAXITER])
 
     
     # Optimization with gradient descent
     for iter in tqdm(range(1,MAXITER+1)):
         
         # Update beta
-        print (beta.shape)
+        #print (beta.shape)
         y = np.copy(beta)
         beta = beta + (iter/(iter+3))*(beta-beta_prev) # fast proximal gradient
         f_base = J_cost(W, beta, X, Y, lambda0, lambda1, lambda2, lambda3, lambda5)
@@ -196,8 +194,8 @@ def mainFunc(X, Y, \
         print (lambda0*cross_entropy_loss(W,X,Y,beta),\
             lambda1*sum(balance_cost(W,X)) ,\
             lambda2*np.sum((W*W).T@(W*W)) ,\
-            lambda3*sum(beta**2) ,\
-            lambda5*(sum(W*W)-1)**2, J_loss[iter-1]) 
+            lambda3*np.sum(beta**2) ,\
+            lambda5*(sum(W*W)-1)**2, J_loss[iter-1],beta) 
         if (paras_save_path is not None) & (iter%10==1):
             #'output/models/crlr/somedir'
             if not os.path.exists(paras_save_path):
@@ -205,6 +203,8 @@ def mainFunc(X, Y, \
             np.savetxt(paras_save_path+'/beta.txt',beta)
             np.savetxt(paras_save_path+'/W.txt',W)
             np.savetxt(paras_save_path+'/J_loss.txt',J_loss)
+            y_pred = np.argmax(sigmoid(np.dot(X_test,beta)),axis=1)
+            report_metrics(y_test, y_pred)
         if (iter > 1) &(J_loss[iter-1] < J_loss[iter-2]) &( abs(J_loss[iter-1] - J_loss[iter-2])[0]  < ABSTOL) or (iter == MAXITER):
             break
     W = W*W
@@ -244,7 +244,7 @@ if __name__ == '__main__':
     lambda0 = 3; #Logistic loss
     lambda1 = 0.1; #Balancing loss
     lambda2 = 1; #L_2 norm of sample weight
-    lambda3 = 0; #L_2 norm of beta
+    lambda3 = 0.1; #L_2 norm of beta
     lambda4 = 0.001; #L_1 norm of bata
     lambda5 = 5; #Normalization of sample weight
     MAXITER = 1000;
@@ -284,7 +284,7 @@ if __name__ == '__main__':
     def prepare_dataset(datafile='data/BoW_Training.mat',valid_method = 'classic',train_context_num=5):
         import scipy.io as sio
         BoW_Training = sio.loadmat(datafile)['data']
-        print (BoW_Training.shape)
+        #print (BoW_Training.shape)
         BoW_Training_x = BoW_Training[:,:50]
         BoW_Training_y = BoW_Training[:,-2:]
         if valid_method == 'classic':
@@ -304,13 +304,16 @@ if __name__ == '__main__':
 
             train_ind = tmp_select_ind
             test_ind = np.setdiff1d(np.arange(0,BoW_Training_y.shape[0]),tmp_select_ind)
-            return BoW_Training_x[train_ind],BoW_Training_x[test_ind],BoW_Training_y[train_ind],\
-                    BoW_Training_y[test_ind],train_ind,test_ind
+            from sklearn.preprocessing import OneHotEncoder
+            enc = OneHotEncoder(handle_unknown='ignore')
+            y = enc.fit_transform(BoW_Training_y[:,0].reshape(-1,1)).toarray()
+            return BoW_Training_x[train_ind],BoW_Training_x[test_ind],y[train_ind],\
+                    y[test_ind],train_ind,test_ind
     X_train, X_test, y_train, y_test,_,_ = prepare_dataset(datafile='data/BoW_Training.mat',
                                                         valid_method = 'non-iid',
-                                                         train_context_num=5)
+                                                        train_context_num=5)
     print('number of training samples: {}, test samples: {}'.format(X_train.shape[0], X_test.shape[0]))
-    y_train,y_test = y_train[:,0].reshape(-1,1),y_test[:,0].reshape(-1,1)
+    #y_train,y_test = y_train[:,0].reshape(-1,1),y_test[:,0].reshape(-1,1)
     def preprocess(data,method='minmax'):
         if method =='minmax':
             scaler = MinMaxScaler()
@@ -329,17 +332,19 @@ if __name__ == '__main__':
         W_init = np.loadtxt(paras_load_path+'/W.txt').reshape(-1,1)
         beta_init = np.loadtxt(paras_load_path+'/beta.txt')
     else:
-        W_init = np.random.rand(X_train.shape[0], 1);
-        beta_init = 0.5*np.ones([X_train.shape[1], np.unique(y_train).shape[0]]);
+        W_init = 0.1*np.random.rand(X_train.shape[0], 1);
+        beta_init = 0.5*np.ones([X_train.shape[1], y_train.shape[1]]);
+        #print (y_train.shape,'y_train shape')
 
     W, beta, J_loss = mainFunc(X_train, y_train,\
             lambda0, lambda1, lambda2, lambda3, lambda4, lambda5,\
-            1000, ABSTOL, W_init, beta_init, paras_save_path)
+            MAXITER, ABSTOL, W_init, beta_init, paras_save_path)
 
     y_pred = np.argmax(sigmoid(np.dot(X_test,beta)),axis=1)
     report_metrics(y_test, y_pred)
 
     '''
-    python3 bin/CR_softmax.py --save 'output/models/cr_softmax'  --max_iter 100 --l1 0 \
+    python3 bin/CR_softmax.py --save 'output/models/cr_softmax'  --max_iter 500 --l1 1 \
         --load 'output/models/cr_softmax/'
+    python3 bin/CR_softmax.py --save 'output/models/cr_softmax/no_l1'  --max_iter 500 --l1 0
     '''
